@@ -1,6 +1,6 @@
 # 字字动画 Pixmax API 插件
 
-这是一个给字字动画使用的 Pixmax 图片和视频生成插件。安装后，只需要填写 API Key，就可以在字字动画中获取模型并生成图片或视频。
+这是一个给字字动画使用Pixmax API 生成图片和视频的插件。安装后，只需要填写 API Key，就可以在字字动画中获取模型并生成图片或视频。
 
 ## 包含内容
 
@@ -10,10 +10,29 @@
 ## 安装
 
 1. 下载本项目全部文件。
-2. 打开字字动画的插件目录。
-3. 将 `image_plugins/pixmax_openapi` 文件夹复制到图片插件目录。
-4. 将 `video_plugins/pixmax_openapi` 文件夹复制到视频插件目录。
-5. 重新启动字字动画，或在插件面板中重新加载插件。
+
+2. 找到字字动画的安装目录。以常见的安装位置为例：
+
+   ```text
+   C:\Users\你的用户名\Desktop\字字动画_9_0_9
+   ```
+
+3. 进入下面这个插件目录：
+
+   ```text
+   字字动画_9_0_9\_internal\plugins
+   ```
+
+4. 按下面的对应关系复制插件文件夹：
+
+   | 本项目中的文件夹 | 复制到字字动画的目录 |
+   | --- | --- |
+   | `image_plugins/pixmax_openapi` | `_internal/plugins/` |
+   | `video_plugins/pixmax_openapi` | `_internal/plugins/` |
+
+5. 如果目标位置已经有同名的 `pixmax_openapi` 文件夹，请用本项目中的文件覆盖其中的同名文件。
+
+6. 完全退出并重新启动字字动画；如果软件有单独的后端进程，也要一并重启。
 
 复制后请保持下面的文件结构不变：
 
@@ -21,6 +40,7 @@
 pixmax_openapi/
 ├─ main.py
 ├─ api_client.py
+├─ info.json
 └─ ui/
    └─ index.html
 ```
@@ -38,6 +58,8 @@ pixmax_openapi/
 ```text
 https://app.pixmax.cn/openapi
 ```
+
+插件设置中提供了“API 地址”输入框。默认使用上面的地址；如果你使用兼容 Pixmax OpenAPI 的其他地址，可以在这里修改，保存后重新点击“连接并获取模型”。
 
 ## 图片生成
 
@@ -70,6 +92,8 @@ https://app.pixmax.cn/openapi
 - 生成数量
 
 不同模型支持的参数可能不同，插件会自动隐藏或禁用不适用的选项。
+
+生成任务会显示进度状态：排队阶段显示“排队中”，执行阶段显示“生成中”和百分比，完成后显示 100%。
 
 ## 参考图和资产审核
 

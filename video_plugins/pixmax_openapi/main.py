@@ -78,7 +78,10 @@ def get_params() -> dict[str, Any]:
         params.update(stored)
     if not str(params.get("api_key") or "").strip() and os.getenv("PIXMAX_OPENAPI_KEY"):
         params["api_key"] = os.getenv("PIXMAX_OPENAPI_KEY", "").strip()
-    params["api_base_url"] = DEFAULT_BASE_URL
+    try:
+        params["api_base_url"] = normalize_base_url(params.get("api_base_url") or DEFAULT_BASE_URL)
+    except PixmaxApiError:
+        params["api_base_url"] = DEFAULT_BASE_URL
     params["connected"] = bool(str(params.get("_project_uuid") or "").strip())
     return params
 
@@ -88,7 +91,7 @@ def _api_key(params: dict[str, Any]) -> str:
 
 
 def _api_base_url(params: dict[str, Any]) -> str:
-    return DEFAULT_BASE_URL
+    return normalize_base_url(params.get("api_base_url") or DEFAULT_BASE_URL)
 
 
 def _as_int(value: Any, default: int, minimum: int, maximum: int) -> int:

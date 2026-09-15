@@ -32,6 +32,10 @@
       <label class="form-label" for="apiKey">API Key</label>
       <input class="wide" id="apiKey" type="password" autocomplete="off" placeholder="填写 Pixmax API Key">
     </div>
+    <div class="form-row">
+      <label class="form-label" for="apiBaseUrl">API 地址</label>
+      <input class="wide" id="apiBaseUrl" type="url" autocomplete="off" value="https://app.pixmax.cn/openapi" placeholder="https://app.pixmax.cn/openapi">
+    </div>
     <div class="hint" style="margin:8px 0 10px 96px">连接时会自动选择或创建项目。</div>
     <button id="connectButton" type="button">连接并获取模型</button>
     <div id="status" class="status"></div>
@@ -73,6 +77,7 @@
   <script>
     var fields = {
       api_key: document.getElementById('apiKey'),
+      api_base_url: document.getElementById('apiBaseUrl'),
       model: document.getElementById('model'),
       resolution: document.getElementById('resolution'),
       aspect_ratio: document.getElementById('aspectRatio'),
@@ -196,7 +201,7 @@
       PluginSDK.saveParams(readValues())
       setStatus('success', '已切换模型，已同步 ' + supported + ' 个参数。')
     })
-    ;['resolution', 'aspect_ratio', 'duration', 'include_audio', 'bitrate_mode', 'count'].forEach(function (key) {
+    ;['api_base_url', 'resolution', 'aspect_ratio', 'duration', 'include_audio', 'bitrate_mode', 'count'].forEach(function (key) {
       fields[key].addEventListener('change', function () { PluginSDK.saveParams(readValues()) })
     })
     if (window.PluginSDK && typeof PluginSDK.onReady === 'function') {
