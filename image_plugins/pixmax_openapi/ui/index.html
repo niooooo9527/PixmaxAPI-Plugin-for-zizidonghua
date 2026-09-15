@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Pixmax API 图片</title>
+  <link rel="stylesheet" href="PLUGIN_SDK_CSS">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 14px 12px 24px; color: var(--text-primary); }
+    h3 { margin: 0 0 12px; font-size: 14px; font-weight: 600; }
+    .hint { color: var(--text-muted); font-size: 11px; line-height: 1.5; }
+    .section { padding: 12px 0; border-bottom: 1px solid var(--border-color); }
+    .section-title { margin-bottom: 9px; font-size: 12px; font-weight: 600; }
+    .form-row { display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: center; gap: 6px 8px; margin-top: 9px; }
+    .form-label { color: var(--text-secondary); font-size: 11px; text-align: right; }
+    .wide { width: 100%; min-width: 0; }
+    input, select, button { min-height: 30px; }
+    button { width: 100%; padding: 5px 9px; }
+    button:disabled { opacity: .65; cursor: wait; }
+    select:disabled, input:disabled { opacity: .65; cursor: not-allowed; }
+    .status { display: none; margin-top: 10px; padding: 8px 9px; border: 1px solid var(--border-color); border-radius: 5px; font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; }
+    .status.info { display: block; color: #c9c8f4; background: rgba(105, 101, 183, .14); }
+    .status.success { display: block; color: #8bd7b5; background: rgba(54, 179, 126, .1); }
+    .status.error { display: block; color: #f08b8b; background: rgba(224, 93, 93, .1); }
+  </style>
+</head>
+<body>
+  <h3>Pixmax API 图片</h3>
+  <div class="section">
+    <div class="section-title">连接 Pixmax</div>
+    <div class="form-row">
+      <label class="form-label" for="apiKey">API Key</label>
+      <input class="wide" id="apiKey" type="password" autocomplete="off" placeholder="填写 Pixmax API Key">
+    </div>
+    <div class="hint" style="margin:8px 0 10px 96px">连接时会自动选择或创建项目。</div>
+    <button id="connectButton" type="button">连接并获取模型</button>
+    <div id="status" class="status"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">生成设置</div>
+    <div class="form-row">
+      <label class="form-label" for="model">模型</label>
+      <select class="wide" id="model" disabled><option value="">先连接并获取模型</option></select>
+    </div>
+    <div class="form-row">
+      <label class="form-label" for="resolution">分辨率</label>
+      <select class="wide" id="resolution" disabled><option value="2K">2K</option><option value="1K">1K</option><option value="4K">4K</option></select>
+    </div>
+    <div class="form-row">
+      <label class="form-label" for="aspectRatio">宽高比</label>
+      <select class="wide" id="aspectRatio" disabled><option value="1:1">1:1</option><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="4:3">4:3</option><option value="3:4">3:4</option><option value="21:9">21:9</option><option value="adaptive">adaptive</option></select>
+    </div>
+    <div class="form-row">
+      <label class="form-label" for="quality">质量</label>
+      <select class="wide" id="quality" disabled><option value="standard">standard</option><option value="high">high</option><option value="hd">hd</option><option value="medium">medium</option><option value="low">low</option><option value="auto">auto</option></select>
+    </div>
+    <div class="form-row">
+      <label class="form-label" for="count">生成数量</label>
+      <select class="wide" id="count" disabled><option value="1">1</option><option value="2">2</option><option value="4">4</option></select>
+    </div>
+  </div>
+
+  <script src="PLUGIN_SDK_JS"></script>
+  <script>
+    var fields = {
+      api_key: document.getElementById('apiKey'),
+      model: document.getElementById('model'),
+      resolution: document.getElementById('resolution'),
+      aspect_ratio: document.getElementById('aspectRatio'),
+      quality: document.getElementById('quality'),
+      count: document.getElementById('count')
+    }
+    var connectButton = document.getElementById('connectButton')
+    var statusBox = document.getElementById('status')
+    var modelCatalog = {}
+    var savedModel = ''
+
+    function valueOf(key) {
+      var value = fields[key].value
+      return key === 'count' ? (parseInt(value, 10) || 1) : value.trim()
+    }
+    function readValues() {
+      var result = {}
+      Object.keys(fields).forEach(function (key) { result[key] = valueOf(key) })
+      return result
+    }
+    function setStatus(kind, message) {
+      statusBox.className = 'status ' + kind
+      statusBox.textContent = message || ''
+    }
+    function schemaFor(params, name) {
+      var wanted = String(name).replace(/[^a-z0-9]/gi, '').toLowerCase()
+      var keys = Object.keys(params || {})
+      for (var i = 0; i < keys.length; i++) {
+        if (keys[i].replace(/[^a-z0-9]/gi, '').toLowerCase() === wanted) return params[keys[i]]
+      }
+      return null
+    }
+    function schemaOptions(schema) {
+      return schema && (schema.options || schema.values || schema.enum || schema.inValues)
+    }
+    function setUnsupported(fieldName) {
+      var select = fields[fieldName]
+      select.innerHTML = ''
+      var option = document.createElement('option')
+      option.value = ''
+      option.textContent = '当前模型未提供此参数'
+      select.appendChild(option)
+      select.disabled = true
+      if (fieldName === 'quality') select.value = ''
+    }
+    function applyControl(fieldName, schema) {
+      var select = fields[fieldName]
+      if (!schema || typeof schema !== 'object') {
+        setUnsupported(fieldName)
+        return false
+      }
+      var options = schemaOptions(schema)
+      var current = select.value
+      if (Array.isArray(options) && select.tagName === 'SELECT') {
+        select.innerHTML = ''
+        options.forEach(function (option) {
+          var value = typeof option === 'object' ? (option.value !== undefined ? option.value : option.name) : option
+          var label = typeof option === 'object' ? (option.name !== undefined ? option.name : option.value) : option
+          var item = document.createElement('option')
+          item.value = value === undefined || value === null ? '' : String(value)
+          item.textContent = label === undefined || label === null || label === '' ? '自动' : String(label)
+          select.appendChild(item)
+        })
+      }
+      var values = Array.prototype.map.call(select.options, function (option) { return option.value })
+      var schemaDefault = schema.default !== undefined ? schema.default : schema.defaultValue
+      var preferred = String(current || '')
+      if (values.indexOf(preferred) !== -1) select.value = preferred
+      else if (schemaDefault !== undefined && schemaDefault !== null && values.indexOf(String(schemaDefault)) !== -1) select.value = String(schemaDefault)
+      else if (select.options.length) select.selectedIndex = 0
+      select.disabled = false
+      return true
+    }
+    function applySchema(row) {
+      var schemas = row && row.params && typeof row.params === 'object' ? row.params : {}
+      var mapping = { resolution: 'resolution', aspectRatio: 'aspect_ratio', quality: 'quality', count: 'count' }
+      var supported = 0
+      Object.keys(mapping).forEach(function (apiName) {
+        if (applyControl(mapping[apiName], schemaFor(schemas, apiName))) supported += 1
+      })
+      return supported
+    }
+    function renderModels(models) {
+      var wantedModel = fields.model.value || savedModel
+      fields.model.innerHTML = ''
+      modelCatalog = {}
+      ;(models || []).forEach(function (row) {
+        if (!row || !row.code) return
+        modelCatalog[row.code] = row
+        var option = document.createElement('option')
+        option.value = row.code
+        option.textContent = row.name + ' (' + row.code + ')'
+        fields.model.appendChild(option)
+      })
+      fields.model.disabled = !(models && models.length)
+      if (models && models.length) {
+        fields.model.value = modelCatalog[wantedModel] ? wantedModel : models[0].code
+        savedModel = fields.model.value
+        var supported = applySchema(modelCatalog[fields.model.value])
+        PluginSDK.saveParams(readValues())
+        return supported
+      }
+      ;['resolution', 'aspect_ratio', 'quality', 'count'].forEach(setUnsupported)
+      return 0
+    }
+    function connect() {
+      var values = readValues()
+      if (!values.api_key) { setStatus('error', '请先填写 API Key。'); return }
+      connectButton.disabled = true
+      setStatus('info', '正在连接 Pixmax 并读取模型...')
+      PluginSDK.saveParams(values)
+      PluginSDK.sendAction('connect_and_get_models', values, { timeoutMs: 40000 }).then(function (result) {
+        if (!result || !result.ok) { setStatus('error', (result && (result.error || result.message)) || '连接失败'); return }
+        var supported = renderModels(result.models)
+        setStatus('success', (result.message || '已连接 Pixmax。') + ' 当前模型已同步 ' + supported + ' 个参数。')
+      }).catch(function (error) {
+        setStatus('error', String(error))
+      }).finally(function () { connectButton.disabled = false })
+    }
+    connectButton.addEventListener('click', connect)
+    fields.model.addEventListener('change', function () {
+      savedModel = fields.model.value
+      var supported = applySchema(modelCatalog[fields.model.value] || null)
+      PluginSDK.saveParams(readValues())
+      setStatus('success', '已切换模型，已同步 ' + supported + ' 个参数。')
+    })
+    ;['resolution', 'aspect_ratio', 'quality', 'count'].forEach(function (key) {
+      fields[key].addEventListener('change', function () { PluginSDK.saveParams(readValues()) })
+    })
+    if (window.PluginSDK && typeof PluginSDK.onReady === 'function') {
+      PluginSDK.onReady(function (params) {
+        params = params || {}
+        savedModel = params.model || ''
+        Object.keys(fields).forEach(function (key) {
+          if (params[key] !== undefined && params[key] !== null) fields[key].value = params[key]
+        })
+        setStatus('info', params.connected ? '已保存 API Key，可再次点击获取模型。' : '填写 API Key 后点击“连接并获取模型”。')
+      })
+    } else {
+      connectButton.disabled = true
+      setStatus('error', 'PluginSDK 未加载，请从字字动画插件面板打开。')
+    }
+  </script>
+</body>
+</html>

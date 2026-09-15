@@ -1,0 +1,8 @@
+{
+  "name": "pixmax_openapi_image",
+  "display_name": "Pixmax API 图片",
+  "version": "1.1.0",
+  "description": "只需 Pixmax API Key，自动连接项目并读取图片模型。",
+  "api_version": 2,
+  "type": "image"
+}
